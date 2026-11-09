@@ -1,0 +1,262 @@
+/* =====================================================================
+   Weather Signage — shared styles
+   Every page is laid out on a fixed 1920 x 1080 "stage" that is scaled
+   to fit the browser window (see signage.js). All sizes below are in
+   stage pixels, so the layout looks identical no matter what size or
+   zoom level the Anthias browser reports.
+   ===================================================================== */
+
+:root {
+  --font-display: "Barlow Semi Condensed", "Barlow", "Arial Narrow", Arial, sans-serif;
+  --font-body: "Barlow", "Segoe UI", Arial, sans-serif;
+  --ink: #ffffff;
+  --ink-soft: rgba(255, 255, 255, 0.82);
+  --ink-dim: rgba(255, 255, 255, 0.62);
+  --glass: rgba(8, 14, 28, 0.55);
+  --glass-strong: rgba(8, 14, 28, 0.62);
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  --warm: #ffcf5a;
+  --cool: #8fd0ff;
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #070b16;
+  color: var(--ink);
+  font-family: var(--font-body);
+  cursor: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Stage ---------- */
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  background: #0d1a33;
+}
+
+.sky-layer, .sky-layer canvas, .scrim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+}
+.sky-layer { z-index: 0; }
+.sky-layer canvas { display: block; }
+.sky-layer .bg-photo {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  background-size: cover; background-position: center;
+  opacity: 0; transition: opacity 1.4s ease;
+}
+.sky-layer .bg-photo.on { opacity: 1; }
+.sky-layer .bg-photo.instant { transition: none; }
+/* Slow "camera drift" across the photo. signage.js sets a negative delay from the clock,
+   so every page shows exactly the same crop at the same moment. */
+.sky-layer .bg-photo { animation: kenburns 60s ease-in-out infinite alternate; transform-origin: 60% 55%; }
+.sky-layer .bg-photo.still { animation: none; transform: none; }
+@keyframes kenburns {
+  0%   { transform: scale(1.0); }
+  100% { transform: scale(1.06); }
+}
+/* the drawn scene is hidden while a photo is showing */
+.sky-layer.photo-on canvas.scene { opacity: 0; transition: opacity 2s ease; }
+.sky-layer canvas.scene { transition: opacity 2s ease; }
+/* photos are busier than the drawn scene, so darken a bit more for legibility */
+.sky-layer.photo-on ~ .scrim {
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,.6) 0px, rgba(0,0,0,.28) 300px, rgba(0,0,0,.22) 600px, rgba(0,0,0,.42) 1080px),
+    radial-gradient(ellipse at center, rgba(0,0,0,0) 50%, rgba(0,0,0,.4) 100%);
+}
+
+/* Darkens the edges so text stays readable over any background */
+.scrim {
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0px, rgba(0, 0, 0, 0.15) 260px, rgba(0, 0, 0, 0) 520px, rgba(0, 0, 0, 0.25) 1080px),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+/* ---------- Header ---------- */
+.topbar {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 184px;
+  padding: 0 52px 0 30px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-column-gap: 40px;
+  align-items: center;
+  background: linear-gradient(to bottom, rgba(4, 8, 18, 0.82), rgba(4, 8, 18, 0.62));
+  border-bottom: 3px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.topbar .logo {
+  display: block;
+  height: 146px;
+  width: auto;
+  border-radius: 16px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+.title-block {
+  min-width: 0;            /* lets the title shrink instead of pushing the clock */
+  overflow: hidden;
+}
+.title-block h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 112px;
+  height: 124px;
+  line-height: 124px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-shadow: var(--shadow);
+}
+.title-block .sub {
+  margin-top: 8px;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-dim);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.clock {
+  text-align: right;
+  white-space: nowrap;
+}
+.clock-time {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 104px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  text-shadow: var(--shadow);
+}
+.clock-time .ampm { font-size: 58px; line-height: 1; margin-left: 12px; color: var(--ink-soft); }
+.clock-time .sec { color: var(--ink-soft); }
+.clock-date {
+  margin-top: 8px;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-dim);
+  letter-spacing: 1px;
+}
+
+/* ---------- Main region & panels ---------- */
+.main {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  top: 184px;
+  width: 1920px;
+  height: 896px;
+}
+
+.panel {
+  background: var(--glass);
+  border: 2px solid var(--glass-edge);
+  border-radius: 34px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.footnote {
+  position: absolute;
+  z-index: 5;
+  left: 48px;
+  bottom: 10px;
+  font-size: 38px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  text-shadow: var(--shadow);
+  white-space: nowrap;
+}
+.footnote.right { left: auto; right: 48px; }
+.footnote .stale { color: #ffcf5a; }
+
+/* ---------- Entrance + change animations ---------- */
+.enter {
+  opacity: 0;
+  animation: enterUp 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: var(--d, 0s);
+}
+.enter-left  { opacity: 0; animation: enterLeft 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; animation-delay: var(--d, 0s); }
+.enter-right { opacity: 0; animation: enterRight 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; animation-delay: var(--d, 0s); }
+.enter-pop   { opacity: 0; animation: enterPop 1s cubic-bezier(0.2, 0.9, 0.25, 1.15) forwards; animation-delay: var(--d, 0s); }
+.enter-down  { opacity: 0; animation: enterDown 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; animation-delay: var(--d, 0s); }
+
+@keyframes enterUp    { from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: none; } }
+@keyframes enterDown  { from { opacity: 0; transform: translateY(-50px); } to { opacity: 1; transform: none; } }
+@keyframes enterLeft  { from { opacity: 0; transform: translateX(-90px); } to { opacity: 1; transform: none; } }
+@keyframes enterRight { from { opacity: 0; transform: translateX(90px); } to { opacity: 1; transform: none; } }
+@keyframes enterPop   { 0% { opacity: 0; transform: scale(0.6); } 100% { opacity: 1; transform: none; } }
+
+.swap { animation: swapIn 0.8s ease both; }
+@keyframes swapIn { 0% { opacity: 0; transform: translateY(18px); } 100% { opacity: 1; transform: none; } }
+
+/* ---------- Animated SVG icons (icons.js) ---------- */
+.wxi { display: block; width: 100%; height: 100%; overflow: visible; }
+.wxi .spin      { animation: wxSpin 30s linear infinite; transform-origin: var(--ox, 128px) var(--oy, 128px); }
+.wxi .pulse     { animation: wxPulse 4s ease-in-out infinite; transform-origin: var(--ox, 128px) var(--oy, 128px); }
+.wxi .drift     { animation: wxDrift 7s ease-in-out infinite; }
+.wxi .drift2    { animation: wxDrift 9s ease-in-out infinite reverse; }
+.wxi .bob       { animation: wxBob 5s ease-in-out infinite; }
+.wxi .fall      { animation: wxFall 1.15s linear infinite; }
+.wxi .fall-slow { animation: wxFallSlow 2.8s linear infinite; }
+.wxi .bounce    { animation: wxBounce 1.3s ease-in infinite; }
+.wxi .flash     { animation: wxFlash 3.2s linear infinite; }
+.wxi .twinkle   { animation: wxTwinkle 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.wxi .slide     { animation: wxSlide 5s ease-in-out infinite; }
+.wxi .slide2    { animation: wxSlide 6.5s ease-in-out infinite reverse; }
+.wxi .gust      { animation: wxGust 2.6s ease-in-out infinite; }
+.wxi .sway      { animation: wxSway 2.4s ease-in-out infinite; transform-origin: 128px 120px; }
+.wxi .flicker   { animation: wxFlicker 1.2s ease-in-out infinite; transform-origin: 128px 236px; }
+.wxi .rise      { animation: wxRise 3s ease-in-out infinite; }
+.wxi .wave      { animation: wxWave 3s ease-in-out infinite; }
+.wxi .wave2     { animation: wxWave 3s ease-in-out infinite reverse; }
+.wxi .heat      { animation: wxHeat 1.8s ease-in-out infinite; }
+.wxi .drawcheck { stroke-dasharray: 100; stroke-dashoffset: 100; animation: wxDraw 0.9s 0.5s ease-out forwards; }
+
+@keyframes wxSpin    { to { transform: rotate(360deg); } }
+@keyframes wxPulse   { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes wxDrift   { 0%, 100% { transform: translateX(-6px); } 50% { transform: translateX(8px); } }
+@keyframes wxBob     { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes wxFall    { 0% { transform: translateY(-14px); opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(40px); opacity: 0; } }
+@keyframes wxFallSlow{ 0% { transform: translate(0, -12px) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(6px, 12px) rotate(90deg); } 85% { opacity: 1; } 100% { transform: translate(-4px, 38px) rotate(180deg); opacity: 0; } }
+@keyframes wxBounce  { 0% { transform: translateY(-14px); opacity: 0; } 15% { opacity: 1; } 60% { transform: translateY(30px); } 75% { transform: translateY(20px); } 90% { transform: translateY(30px); opacity: 1; } 100% { transform: translateY(30px); opacity: 0; } }
+@keyframes wxFlash   { 0%, 62%, 70%, 76%, 100% { opacity: 0.15; } 64%, 68%, 74% { opacity: 1; } }
+@keyframes wxTwinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.6); } }
+@keyframes wxSlide   { 0%, 100% { transform: translateX(-12px); } 50% { transform: translateX(12px); } }
+@keyframes wxGust    { 0% { stroke-dashoffset: 100; opacity: 0; } 20% { opacity: 1; } 70% { opacity: 1; } 100% { stroke-dashoffset: -100; opacity: 0; } }
+@keyframes wxSway    { 0%, 100% { transform: skewX(-7deg); } 50% { transform: skewX(7deg); } }
+@keyframes wxFlicker { 0%, 100% { transform: scale(1, 1); } 25% { transform: scale(0.96, 1.05); } 50% { transform: scale(1.03, 0.95); } 75% { transform: scale(0.98, 1.03); } }
+@keyframes wxRise    { 0% { transform: translateY(8px); opacity: 0.3; } 50% { opacity: 1; } 100% { transform: translateY(-14px); opacity: 0.3; } }
+@keyframes wxWave    { 0%, 100% { transform: translateX(-10px); } 50% { transform: translateX(10px); } }
+@keyframes wxHeat    { 0%, 100% { transform: translateY(0); opacity: 0.4; } 50% { transform: translateY(-8px); opacity: 1; } }
+@keyframes wxDraw    { to { stroke-dashoffset: 0; } }
+
+/* Respect a "reduce motion" setting if a display is configured for it */
+@media (prefers-reduced-motion: reduce) {
+  .wxi * { animation: none !important; }
+}

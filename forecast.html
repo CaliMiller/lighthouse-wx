@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <script>
+    /* =================== DISPLAY SETTINGS ===================
+       Enter the US ZIP code this display should show weather for.
+       (Or use latitude/longitude instead: { lat: 39.77, lon: -86.16 })
+       ========================================================= */
+    window.WX_SETTINGS = { zip: "90210" };
+  </script>
+  <title>Extended Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+  <link rel="stylesheet" href="assets/signage.css">
+  <style>
+    .cards {
+      position: absolute; left: 36px; top: 14px; width: 1848px; height: 818px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; grid-column-gap: 22px;
+    }
+    .card {
+      position: relative; height: 818px; min-width: 0; overflow: hidden;
+      padding: 14px 10px 0 10px; text-align: center;
+      display: grid;
+      grid-template-rows: 108px 200px 150px 100px 152px 90px;
+    }
+    .card.today { background: rgba(10, 22, 46, 0.66); border-color: rgba(255, 255, 255, 0.34); }
+    .card > div { min-width: 0; overflow: hidden; white-space: nowrap; }
+    .day  { font-family: var(--font-display); font-weight: 700; font-size: 100px; line-height: 108px; text-transform: uppercase; letter-spacing: 1px; text-shadow: var(--shadow); }
+    .ficon { width: 210px; height: 200px; margin: 0 auto; overflow: visible !important; }
+    .ficon .wxi { width: 210px; height: 210px; margin-top: -6px; }
+    .hi   { font-family: var(--font-display); font-weight: 700; font-size: 150px; line-height: 150px; color: #ffffff; text-shadow: var(--shadow); font-variant-numeric: tabular-nums; }
+    .hi.night { color: var(--cool); }
+    .lo   { font-family: var(--font-display); font-weight: 700; font-size: 96px; line-height: 100px; color: var(--cool); text-shadow: var(--shadow); }
+    .lo .word { font-size: 72px; }
+    .cond {
+      white-space: normal !important; font-size: 70px; font-weight: 700; line-height: 74px;
+      display: flex; align-items: center; justify-content: center; text-shadow: var(--shadow);
+      font-family: var(--font-display); padding: 0 2px;
+    }
+    .pop { font-size: 80px; font-weight: 700; line-height: 90px; color: #9fd9ff; font-family: var(--font-display); text-shadow: var(--shadow); }
+    .pop svg { width: 50px; height: 66px; vertical-align: -8px; margin-right: 10px; }
+    .msg { position: absolute; left: 0; top: 300px; width: 1920px; text-align: center; font-size: 80px; font-weight: 700; font-family: var(--font-display); text-shadow: var(--shadow); }
+  </style>
+</head>
+<body>
+<div id="stage">
+  <div id="sky" class="sky-layer"></div>
+  <div class="scrim"></div>
+
+  <header class="topbar enter-down">
+    <img class="logo" src="assets/logo.png" alt="">
+    <div class="title-block"><h1 data-fit="60">Extended Forecast</h1></div>
+    <div class="clock"><div class="clock-time" id="clockTime">--:--</div></div>
+  </header>
+
+  <main class="main">
+    <div class="cards" id="cards"></div>
+    <div class="msg" id="msg">Loading forecast…</div>
+  </main>
+
+  <div class="footnote" id="note"></div>
+</div>
+
+<script src="assets/signage.js"></script>
+<script src="assets/icons.js"></script>
+<script src="assets/backgrounds/manifest.js"></script>
+<script src="assets/sky.js"></script>
+<script>
+(function () {
+  var S = Signage, $ = function (id) { return document.getElementById(id); };
+  var DROP = '<svg viewBox="0 0 20 26"><path d="M10 1 C14 8 18 12 18 17 A8 8 0 0 1 2 17 C2 12 6 8 10 1Z" fill="#7cc8ff"/></svg>';
+  var lastSig = null;
+
+  // Group NWS 12-hour periods into day cards (day + following night)
+  function buildDays(periods) {
+    var days = [], i = 0;
+    if (periods.length && !periods[0].isDaytime) {
+      days.push({ night: periods[0], tonightOnly: true });
+      i = 1;
+    }
+    for (; i < periods.length && days.length < 5; i++) {
+      var p = periods[i];
+      if (!p.isDaytime) continue;
+      var n = periods[i + 1] && !periods[i + 1].isDaytime ? periods[i + 1] : null;
+      days.push({ day: p, night: n });
+    }
+    return days.slice(0, 5);
+  }
+
+  function popOf(a, b) {
+    var v = Math.max(a && a.pop ? a.pop : 0, b && b.pop ? b.pop : 0);
+    if (!v) {
+      // older responses only carry the chance inside the icon URL
+      var ca = a ? S.classify(a.icon, a.short).pop : null, cb = b ? S.classify(b.icon, b.short).pop : null;
+      v = Math.max(ca || 0, cb || 0);
+    }
+    return v;
+  }
+
+  function cardHTML(d, idx) {
+    var t = S.now(), html, main = d.tonightOnly ? d.night : d.day;
+    var start = new Date(main.start), lp = S.localParts(start);
+    var tp = S.localParts(t);
+    var isToday = tp.day === lp.day && tp.month === lp.month && tp.year === lp.year;
+    var name = d.tonightOnly ? "Tonight" : (isToday ? "Today" : lp.weekday);
+    var cls = S.classify(main.icon, main.short, !main.isDaytime);
+    var pop = popOf(main, d.tonightOnly ? null : d.night);
+
+    html = '<div class="card panel enter' + (idx === 0 ? " today" : "") + '" style="--d:' + (0.25 + idx * 0.13).toFixed(2) + 's">' +
+      '<div class="day" data-fit="60">' + name + "</div>" +
+      '<div class="ficon">' + WxIcons.weather(cls.key, cls.night) + "</div>";
+    if (d.tonightOnly) {
+      html += '<div class="hi night" data-fit="90">' + main.temp + "°</div>" +
+        '<div class="lo"><span class="word">Low</span></div>';
+    } else {
+      html += '<div class="hi" data-fit="90">' + main.temp + "°</div>" +
+        '<div class="lo" data-fit="60">' + (d.night ? d.night.temp + "°" : "&nbsp;") + "</div>";
+    }
+    html += '<div class="cond" data-fit="48">' + S.esc(S.shortLabel(cls.key, cls.night)) + "</div>" +
+      '<div class="pop">' + (pop >= 10 ? DROP + pop + "%" : "&nbsp;") + "</div></div>";
+    return html;
+  }
+
+  function render(periods, fromCache, when) {
+    if (!periods || !periods.length) {
+      if (!lastSig) $("msg").textContent = "Forecast temporarily unavailable";
+      return;
+    }
+    var days = buildDays(periods);
+    var sig = JSON.stringify(days.map(function (d) { var m = d.day || d.night; return [m.start, m.temp, m.icon, d.night && d.night.temp]; }));
+    if (sig !== lastSig) {
+      $("msg").textContent = "";
+      $("cards").innerHTML = days.map(cardHTML).join("");
+      S.fitAll($("cards"));
+      lastSig = sig;
+    }
+    S.setUpdated(when ? new Date(when) : null, when && Date.now() - when > 3 * 3600000);
+  }
+
+  S.boot(function () {
+    Sky.init("sky");
+    S.startObservations();
+    S.startForecast(render);
+  });
+})();
+</script>
+</body>
+</html>

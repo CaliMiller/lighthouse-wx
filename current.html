@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <script>
+    /* =================== DISPLAY SETTINGS ===================
+       Enter the US ZIP code this display should show weather for.
+       (Or use latitude/longitude instead: { lat: 39.77, lon: -86.16 })
+       ========================================================= */
+    window.WX_SETTINGS = { zip: "90210" };
+  </script>
+  <title>Current Conditions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+  <link rel="stylesheet" href="assets/signage.css">
+  <style>
+    /* icon and temperature are 1.5x the previous version */
+    .hero-icon { position: absolute; left: 30px; top: -36px; width: 700px; height: 700px; }
+    .temp {
+      position: absolute; left: 740px; top: 0; width: 1150px; height: 490px;
+      font-family: var(--font-display); font-weight: 700; font-size: 600px; line-height: 490px;
+      text-align: center; white-space: nowrap; overflow: hidden; letter-spacing: -8px;
+      text-shadow: 0 12px 50px rgba(0,0,0,.5), 0 4px 8px rgba(0,0,0,.55);
+      font-variant-numeric: tabular-nums;
+    }
+    .temp .deg { font-size: 0.5em; line-height: 1; vertical-align: 0.72em; margin-left: 6px; color: var(--ink-soft); letter-spacing: 0; }
+    .cond {
+      position: absolute; left: 740px; top: 490px; width: 1150px; height: 140px;
+      text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 124px; line-height: 140px;
+      white-space: nowrap; overflow: hidden; text-shadow: var(--shadow);
+    }
+    .tiles {
+      position: absolute; left: 40px; top: 646px; width: 1840px; height: 196px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+    }
+    .tile { padding: 18px 24px 0 24px; text-align: center; border-left: 3px solid rgba(255,255,255,.16); min-width: 0; }
+    .tile:first-child { border-left: 0; }
+    .tile .label { font-size: 56px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--ink-soft); line-height: 60px; height: 60px; white-space: nowrap; }
+    .tile .value { margin-top: 4px; height: 112px; font-family: var(--font-display); font-weight: 700; font-size: 112px; line-height: 112px; white-space: nowrap; overflow: hidden; text-shadow: var(--shadow); }
+    .tile .unit { font-size: 0.6em; line-height: 1; color: var(--ink-soft); margin-left: 8px; }
+    .tile .hi { color: #ffd27a; }
+    .tile .lo { color: var(--cool); }
+    .tile .sep { color: var(--ink-dim); margin: 0 12px; }
+  </style>
+</head>
+<body>
+<div id="stage">
+  <div id="sky" class="sky-layer"></div>
+  <div class="scrim"></div>
+
+  <header class="topbar enter-down">
+    <img class="logo" src="assets/logo.png" alt="">
+    <div class="title-block"><h1 data-fit="60">Current Conditions</h1></div>
+    <div class="clock"><div class="clock-time" id="clockTime">--:--</div></div>
+  </header>
+
+  <main class="main">
+    <div class="hero-icon enter-pop" style="--d:.25s" id="icon"></div>
+    <div class="temp enter-pop" style="--d:.4s" id="temp">--</div>
+    <div class="cond enter" style="--d:.6s" id="cond" data-fit="72">Loading…</div>
+
+    <div class="tiles panel enter" style="--d:.8s">
+      <div class="tile"><div class="label">Feels Like</div><div class="value" id="feels" data-fit="64">--</div></div>
+      <div class="tile"><div class="label">Wind</div><div class="value" id="wind" data-fit="64">--</div></div>
+      <div class="tile"><div class="label" id="hiloLabel">High / Low</div><div class="value" id="hilo" data-fit="64">--</div></div>
+    </div>
+  </main>
+
+  <div class="footnote" id="note"></div>
+</div>
+
+<script src="assets/signage.js"></script>
+<script src="assets/icons.js"></script>
+<script src="assets/backgrounds/manifest.js"></script>
+<script src="assets/sky.js"></script>
+<script>
+(function () {
+  var S = Signage, $ = function (id) { return document.getElementById(id); };
+  var shownTemp = null, lastIconSig = null;
+
+  function setText(id, html) {
+    var el = $(id);
+    if (el.innerHTML === html) return;
+    el.innerHTML = html;
+    S.fitText(el, +el.getAttribute("data-fit") || 30);
+  }
+
+  function animateTemp(to) {
+    var el = $("temp");
+    if (to === null) { el.innerHTML = "--"; return; }
+    var from = shownTemp === null ? to - Math.min(12, Math.max(4, Math.abs(to) * 0.15)) : shownTemp;
+    from = Math.round(from);
+    var start = performance.now(), dur = shownTemp === null ? 1400 : 900;
+    shownTemp = to;
+    (function step(t) {
+      var k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.innerHTML = Math.round(from + (to - from) * e) + '<span class="deg">°</span>';
+      if (k < 1) requestAnimationFrame(step); else S.fitText(el, 240);
+    })(start);
+  }
+
+  function has(v) { return v !== null && v !== undefined && !isNaN(v); }
+
+  function renderObs(o) {
+    var cls = S.classify(o.icon, o.text);
+    var sig = cls.key + (cls.night ? "n" : "d");
+    if (sig !== lastIconSig) {
+      $("icon").innerHTML = WxIcons.weather(cls.key, cls.night);
+      if (lastIconSig) S.replay($("icon"), "swap");
+      lastIconSig = sig;
+    }
+    animateTemp(S.round(o.tempF));
+    setText("cond", S.esc(o.text || S.shortLabel(cls.key, cls.night)));
+
+    var feels = has(o.windChillF) ? o.windChillF : (has(o.heatIndexF) ? o.heatIndexF : o.tempF);
+    setText("feels", has(feels) ? S.round(feels) + "°" : "--");
+
+    var wind;
+    if (!has(o.windMph)) wind = "--";
+    else if (o.windMph < 1) wind = "Calm";
+    else {
+      wind = S.esc(S.compass(o.windDir)) + " " + S.round(o.windMph) + '<span class="unit">mph</span>';
+      if (o.gustMph) wind = S.esc(S.compass(o.windDir)) + " " + S.round(o.windMph) + '<span class="unit">G' + S.round(o.gustMph) + "</span>";
+    }
+    setText("wind", wind);
+
+    var t = o.time ? new Date(o.time) : null;
+    S.setUpdated(t, t && Date.now() - t.getTime() > 2 * 3600000);
+  }
+
+  function renderHiLo(periods) {
+    if (!periods || !periods.length) return;
+    var p0 = periods[0], p1 = periods[1];
+    if (p0.isDaytime && p1) {
+      $("hiloLabel").textContent = "High / Low";
+      setText("hilo", '<span class="hi">' + p0.temp + '°</span><span class="sep">/</span><span class="lo">' + p1.temp + "°</span>");
+    } else {
+      $("hiloLabel").textContent = "Tonight's Low";
+      setText("hilo", '<span class="lo">' + p0.temp + "°</span>");
+    }
+  }
+
+  S.boot(function () {
+    Sky.init("sky");
+    S.onObservation(renderObs);
+    S.startObservations();
+    S.startForecast(function (p) { renderHiLo(p); });
+  });
+})();
+</script>
+</body>
+</html>

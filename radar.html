@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <script>
+    /* =================== DISPLAY SETTINGS ===================
+       Enter the US ZIP code this display should show weather for.
+       (Or use latitude/longitude instead: { lat: 39.77, lon: -86.16 })
+
+       Radar view (all optional):
+         radarNorth / radarSouth - latitudes of the top and bottom edges of the visible map.
+                     The page works out the zoom to fit. (Leave out to use radarZoom.)
+         radarCenterLon - longitude of the center of the map. Leave out to center on
+                     your location, shifted west by radarWest.
+         radarZoom - zoom when no north/south edges are given (about 7 = several states)
+         radarWest - degrees to shift the map west of your location (default 0.8)
+         radarMarker - where to draw the white location dot: { lat: .., lon: .. }.
+                     Defaults to the ZIP location. Set to false to hide the dot.
+         radarUrl  - or paste any radar.weather.gov link to show that exact view.
+       ========================================================= */
+    window.WX_SETTINGS = {
+      zip: "46176",
+      radarNorth: 41.06,       // just below Fort Wayne
+      radarSouth: 38.22,       // just above Evansville
+      radarCenterLon: -86.609,
+      radarMarker: { lat: 39.768, lon: -86.158 }
+    };
+  </script>
+  <title>Regional Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+  <link rel="stylesheet" href="assets/signage.css">
+  <style>
+    #stage { background: #0b0f17; }
+    /* The radar fills the whole stage behind the header. The header is solid on this
+       page, so it also covers the radar site's own title bar. */
+    .radar {
+      position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 1;
+      background: radial-gradient(ellipse at 45% 55%, #1b2333 0%, #0b0f17 70%);
+    }
+    .radar iframe {
+      position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0;
+      opacity: 0; transition: opacity 1.2s ease;
+      pointer-events: none;            /* no hover pop-ups on a kiosk */
+    }
+    .radar iframe.on { opacity: 1; }
+    .topbar.solid { background: #070b14; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); }
+    /* location dot (radar.weather.gov's own marker is hard to see on a big screen) */
+    .marker { position: absolute; z-index: 3; width: 0; height: 0; display: none; opacity: 0; transition: opacity 1.2s ease; }
+    .marker.on { opacity: 1; }
+    .marker .dot {
+      position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; border-radius: 50%;
+      background: #ffffff; box-shadow: 0 0 0 5px rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.6);
+    }
+    .marker .ring {
+      position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; border-radius: 50%;
+      border: 5px solid rgba(255,255,255,.9); animation: ping 2.4s ease-out infinite;
+    }
+    @keyframes ping { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(3.2); opacity: 0; } }
+    .radar-msg {
+      position: absolute; left: 0; top: 480px; width: 1920px; text-align: center; z-index: 2;
+      font-family: var(--font-display); font-size: 80px; font-weight: 700; color: var(--ink-soft);
+      text-shadow: var(--shadow);
+    }
+  </style>
+</head>
+<body>
+<div id="stage">
+  <div class="radar" id="radar"></div>
+  <div class="marker" id="marker"><div class="ring"></div><div class="dot"></div></div>
+  <div class="radar-msg" id="msg">Loading radar…</div>
+
+  <header class="topbar solid enter-down">
+    <img class="logo" src="assets/logo.png" alt="">
+    <div class="title-block"><h1 data-fit="60">Regional Radar</h1></div>
+    <div class="clock"><div class="clock-time" id="clockTime">--:--</div></div>
+  </header>
+</div>
+
+<script src="assets/signage.js"></script>
+<script>
+(function () {
+  var S = Signage, C = S.CONFIG, W = window.WX_SETTINGS || {};
+  var box = document.getElementById("radar"), msg = document.getElementById("msg");
+  var RELOAD_MINUTES = 20;   // reload the radar now and then so a long-running kiosk stays fresh
+
+  // ---- map geometry ----
+  // radar.weather.gov uses the standard Web Mercator projection with 256-pixel tiles.
+  // These describe where its map sits inside the 1920x1080 frame (tune if needed):
+  // radar.weather.gov has a title bar about 62 px tall, so its map is centred 31 px below
+  // the middle of the frame (measured on a real display, Nov 2026)
+  var MAP = { cx: 960, cy: 571.4 };               // centre of the radar site's map, in frame pixels
+  var VISIBLE = { top: 184 + 12, bottom: 980 };    // area below our header and above the site's timeline
+  var R = 6378137, TILE0 = 2 * Math.PI * R / 256;  // metres per pixel at zoom 0
+  function mx(lon) { return R * lon * Math.PI / 180; }
+  function my(lat) { return R * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+  function lat(y) { return (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * 180 / Math.PI; }
+
+  // radar.weather.gov keeps its view in ?settings=v1_<base64 JSON>
+  function encode(view) { return "https://radar.weather.gov/?settings=v1_" + btoa(JSON.stringify(view)); }
+  function decode(url) {
+    var m = /settings=v1_([^&#]+)/.exec(url || "");
+    try { return m ? JSON.parse(atob(decodeURIComponent(m[1]))) : null; } catch (e) { return null; }
+  }
+
+  function buildView() {
+    var markerLat = W.radarMarker && W.radarMarker.lat !== undefined ? +W.radarMarker.lat : C.lat;
+    var markerLon = W.radarMarker && W.radarMarker.lon !== undefined ? +W.radarMarker.lon : C.lon;
+    var west = W.radarWest === undefined ? 0.8 : +W.radarWest;
+    var cLon = W.radarCenterLon !== undefined ? +W.radarCenterLon : markerLon - west;
+    var zoom, cLat;
+    if (W.radarNorth !== undefined && W.radarSouth !== undefined) {
+      // fit the requested north/south edges into the visible area
+      var res = (my(+W.radarNorth) - my(+W.radarSouth)) / (VISIBLE.bottom - VISIBLE.top);
+      zoom = Math.log(TILE0 / res) / Math.LN2;
+      cLat = lat(my(+W.radarNorth) + (VISIBLE.top - MAP.cy) * res);
+    } else {
+      zoom = W.radarZoom === undefined ? 8.3 : +W.radarZoom;
+      cLat = markerLat;
+    }
+    return {
+      agenda: { id: "weather", center: [+cLon.toFixed(4), +cLat.toFixed(4)], location: [+markerLon.toFixed(4), +markerLat.toFixed(4)],
+        zoom: +zoom.toFixed(4), layer: "bref_qcd" },
+      animating: true, base: "darkcanvas", artcc: false, county: false, cwa: false, rfc: false, state: false,
+      menu: false, shortFusedOnly: false,
+      opacity: { alerts: 0.56, local: 0.6, localStations: 0.8, national: 1 }
+    };
+  }
+
+  // Put our white dot exactly where a lat/lon falls on the radar map
+  function placeMarker(view) {
+    var el = document.getElementById("marker");
+    if (W.radarMarker === false || !view || !view.agenda) { el.style.display = "none"; return; }
+    var a = view.agenda, at = a.location || [C.lon, C.lat];
+    if (W.radarMarker && W.radarMarker.lat !== undefined) at = [+W.radarMarker.lon, +W.radarMarker.lat];
+    var res = TILE0 / Math.pow(2, a.zoom);
+    var x = MAP.cx + (mx(at[0]) - mx(a.center[0])) / res;
+    var y = MAP.cy - (my(at[1]) - my(a.center[1])) / res;
+    el.style.left = x.toFixed(1) + "px"; el.style.top = y.toFixed(1) + "px";
+    el.style.display = y > VISIBLE.top && y < 1080 ? "block" : "none";
+  }
+
+  // Load a fresh copy in a hidden frame, then cross-fade, so the screen never goes blank
+  function load(url) {
+    var old = box.querySelector("iframe.on");
+    var f = document.createElement("iframe");
+    f.setAttribute("scrolling", "no");
+    f.setAttribute("tabindex", "-1");
+    f.setAttribute("title", "Radar");
+    f.onload = function () {
+      // give the map a moment to draw its first radar frame before showing it
+      setTimeout(function () {
+        f.classList.add("on");
+        document.getElementById("marker").classList.add("on");
+        msg.style.display = "none";
+        if (old) setTimeout(function () { if (old.parentNode) old.parentNode.removeChild(old); }, 1500);
+      }, 2500);
+    };
+    f.src = url;
+    box.appendChild(f);
+  }
+
+  S.boot(function () {
+    function start() {
+      var view = W.radarUrl ? decode(W.radarUrl) : buildView();
+      var url = W.radarUrl || encode(view);
+      placeMarker(view);
+      load(url);
+      setInterval(function () { load(url); }, RELOAD_MINUTES * 60000);
+    }
+    if (W.radarUrl) start(); else S.whenLocated(start);
+  });
+})();
+</script>
+</body>
+</html>

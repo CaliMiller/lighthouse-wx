@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <script>
+    /* =================== DISPLAY SETTINGS ===================
+       Enter the US ZIP code this display should show weather for.
+       (Or use latitude/longitude instead: { lat: 39.77, lon: -86.16 })
+       ========================================================= */
+    window.WX_SETTINGS = { zip: "90210" };
+  </script>
+  <title>Weather Alerts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+  <link rel="stylesheet" href="assets/signage.css">
+  <style>
+    .list { position: absolute; left: 40px; top: 14px; width: 1840px; height: 830px; }
+    .page { position: absolute; left: 0; top: 0; width: 1840px; }
+    .page.leave { animation: pageLeave 0.7s ease forwards; }
+    @keyframes pageLeave { to { opacity: 0; transform: translateX(-120px); } }
+
+    .acard {
+      position: relative; height: 262px; margin-bottom: 20px; padding: 0 40px 0 26px;
+      display: grid; grid-template-columns: 216px 1fr; grid-column-gap: 34px; align-items: center;
+      border-radius: 30px; color: #fff; overflow: hidden;
+      box-shadow: 0 18px 44px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.28);
+    }
+    .acard::after { /* soft sheen */
+      content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 50%;
+      background: linear-gradient(to bottom, rgba(255,255,255,.16), rgba(255,255,255,0)); pointer-events: none;
+    }
+    .acard .text { min-width: 0; }
+    .acard .name {
+      font-family: var(--font-display); font-weight: 700; font-size: 112px; line-height: 118px; height: 118px;
+      white-space: nowrap; overflow: hidden;
+    }
+    .acard .when {
+      margin-top: 6px; font-family: var(--font-display); font-size: 88px; font-weight: 700; line-height: 96px; height: 96px;
+      white-space: nowrap; overflow: hidden;
+    }
+    .badge {
+      width: 208px; height: 208px; border-radius: 50%; padding: 24px; background: #0d1424;
+      box-shadow: 0 0 0 7px rgba(255,255,255,.9), 0 10px 26px rgba(0,0,0,.4);
+    }
+    .warning   { background: linear-gradient(120deg, #e3122f, #a00a22); text-shadow: 0 3px 10px rgba(80,0,10,.45); }
+    .watch     { background: linear-gradient(120deg, #ffb31f, #f37b00); color: #1c1100; }
+    .advisory  { background: linear-gradient(120deg, #ffe45c, #f1c000); color: #1c1600; }
+    .statement { background: linear-gradient(120deg, #3584ea, #1b4ea3); text-shadow: 0 3px 10px rgba(0,20,60,.45); }
+    .emergency { background: linear-gradient(120deg, #d1008a, #6a0a95); text-shadow: 0 3px 10px rgba(40,0,40,.5); }
+    .warning .badge, .emergency .badge { animation: ring 1.6s ease-in-out infinite; }
+    .tornado.warning::before, .emergency::before {
+      content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 30px;
+      box-shadow: inset 0 0 0 12px rgba(255,255,255,.85), 0 0 50px rgba(255,60,80,.8); pointer-events: none;
+      animation: urgent 1.2s ease-in-out infinite;
+    }
+    @keyframes ring { 0%, 100% { box-shadow: 0 0 0 7px rgba(255,255,255,.9), 0 0 0 7px rgba(255,255,255,.5); } 50% { box-shadow: 0 0 0 7px rgba(255,255,255,.9), 0 0 0 26px rgba(255,255,255,0); } }
+    @keyframes urgent { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
+    /* two alerts: larger cards */
+    .big.acard { height: 390px; margin-bottom: 30px; grid-template-columns: 300px 1fr; grid-column-gap: 44px; padding: 0 50px 0 40px; }
+    .big .badge { width: 290px; height: 290px; padding: 34px; }
+    .big .name { font-size: 136px; line-height: 146px; height: 146px; }
+    .big .when { font-size: 108px; line-height: 118px; height: 118px; margin-top: 10px; }
+
+    /* single alert: one large hero card */
+    .hero.acard { height: 620px; grid-template-columns: 420px 1fr; grid-column-gap: 56px; padding: 0 60px; margin-top: 90px; }
+    .hero .badge { width: 400px; height: 400px; padding: 48px; }
+    .hero .name { font-size: 150px; line-height: 160px; height: 160px; }
+    .hero .when { font-size: 116px; line-height: 128px; height: 256px; margin-top: 20px; white-space: normal; }
+
+    .pager { position: absolute; left: 0; top: 852px; width: 1920px; text-align: center; }
+    .pager span { display: inline-block; width: 22px; height: 22px; border-radius: 50%; margin: 0 10px; background: rgba(255,255,255,.3); transition: background .4s, transform .4s; }
+    .pager span.on { background: #fff; transform: scale(1.3); }
+
+    .clear-panel {
+      position: absolute; left: 100px; top: 100px; width: 1720px; height: 640px;
+      display: grid; grid-template-columns: 360px 1fr; grid-column-gap: 60px; align-items: center; padding: 0 70px;
+    }
+    .clear-panel .ok { width: 340px; height: 340px; }
+    .clear-panel h2 { margin: 0; font-family: var(--font-display); font-size: 140px; line-height: 1.05; font-weight: 700; text-shadow: var(--shadow); white-space: nowrap; }
+    .clear-panel p { margin: 26px 0 0 0; font-family: var(--font-display); font-size: 84px; font-weight: 700; color: var(--ink-soft); line-height: 1.1; white-space: nowrap; }
+    .clear-panel.unknown h2 { font-size: 110px; }
+  </style>
+</head>
+<body>
+<div id="stage">
+  <div id="sky" class="sky-layer"></div>
+  <div class="scrim"></div>
+
+  <header class="topbar enter-down">
+    <img class="logo" src="assets/logo.png" alt="">
+    <div class="title-block"><h1 data-fit="60">Weather Alerts</h1></div>
+    <div class="clock"><div class="clock-time" id="clockTime">--:--</div></div>
+  </header>
+
+  <main class="main">
+    <div class="list" id="list"></div>
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <div class="footnote" id="note"></div>
+</div>
+
+<script src="assets/signage.js"></script>
+<script src="assets/icons.js"></script>
+<script src="assets/backgrounds/manifest.js"></script>
+<script src="assets/sky.js"></script>
+<script>
+(function () {
+  var S = Signage, C = S.CONFIG, $ = function (id) { return document.getElementById(id); };
+  var alerts = null, lastSig = null, pageIdx = 0, pageTimer = null, lastOk = null;
+
+  function level(ev) {
+    if (/emergency/i.test(ev)) return "emergency";
+    if (/warning/i.test(ev)) return "warning";
+    if (/watch/i.test(ev)) return "watch";
+    if (/advisory/i.test(ev)) return "advisory";
+    return "statement";
+  }
+  var RANK = { emergency: 0, warning: 1, watch: 2, advisory: 3, statement: 4 };
+
+  function simplify(f) {
+    var p = f.properties;
+    var params = p.parameters || {};
+    var headline = params.NWSheadline && params.NWSheadline[0] ? params.NWSheadline[0] : "";
+    var ev = p.event;
+    // Tornado/flash flood "emergency" is flagged inside a warning
+    var tag = params.tornadoDamageThreat || params.flashFloodDamageThreat;
+    if (tag && /catastrophic/i.test(tag[0])) ev = ev.replace("Warning", "Emergency");
+    return {
+      id: p.id, event: ev, level: level(ev), headline: headline,
+      onset: p.onset || p.effective, end: p.ends || p.expires, sender: p.senderName || "National Weather Service"
+    };
+  }
+
+  function relevant(f) {
+    var p = f.properties, g = p.geocode || {};
+    if (p.status && p.status !== "Actual") return false;
+    if (p.messageType === "Cancel") return false;
+    if (C.excludeEvents.indexOf(p.event) >= 0) return false;
+    // match the county, forecast zone or fire-weather zone that covers this location
+    var ugc = g.UGC || [];
+    for (var i = 0; i < C.alertZones.length; i++) if (ugc.indexOf(C.alertZones[i]) >= 0) return true;
+    return false;
+  }
+
+  function tidy(list) {
+    var t = S.now().getTime(), byEvent = {};
+    list.forEach(function (a) {
+      if (new Date(a.end).getTime() <= t) return;
+      var prev = byEvent[a.event];
+      if (!prev || new Date(a.end) > new Date(prev.end)) byEvent[a.event] = a;
+    });
+    var out = Object.keys(byEvent).map(function (k) { return byEvent[k]; });
+    out.sort(function (a, b) {
+      return (RANK[a.level] - RANK[b.level]) || ((/tornado/i.test(b.event) ? 1 : 0) - (/tornado/i.test(a.event) ? 1 : 0)) ||
+        (new Date(a.onset) - new Date(b.onset));
+    });
+    return out;
+  }
+
+  function whenText(a, hero) {
+    var t = S.now().getTime(), on = new Date(a.onset), end = new Date(a.end);
+    if (a.onset && on.getTime() - t > 10 * 60000) return (hero ? "From " : "") + S.fmtWhen(on) + (hero ? " until " : " – ") + S.fmtWhen(end);
+    return "Until " + S.fmtWhen(end);
+  }
+
+  function cardHTML(a, i, hero, big) {
+    var cls = "acard " + a.level + (/tornado/i.test(a.event) ? " tornado" : "") + (hero ? " hero" : "") + (big ? " big" : "");
+    var anim = hero ? "enter-pop" : "enter-right";
+    var h = '<div class="' + cls + " " + anim + '" style="--d:' + (0.3 + i * 0.15).toFixed(2) + 's">' +
+      '<div class="badge">' + WxIcons.alert(a.event) + "</div>" +
+      '<div class="text"><div class="name" data-fit="64">' + S.esc(a.event) + "</div>" +
+      '<div class="when" data-fit="60">' + S.esc(whenText(a, hero)) + "</div>";
+    return h + "</div></div>";
+  }
+
+  function showPage(i, animateOut) {
+    var pages = Math.ceil(alerts.length / 3);
+    var list = $("list");
+    var build = function () {
+      var slice = alerts.slice(i * 3, i * 3 + 3);
+      list.innerHTML = '<div class="page">' + slice.map(function (a, k) { return cardHTML(a, k, false, alerts.length === 2); }).join("") + "</div>";
+      S.fitAll(list);
+      var dots = "";
+      if (pages > 1) for (var d = 0; d < pages; d++) dots += '<span class="' + (d === i ? "on" : "") + '"></span>';
+      $("pager").innerHTML = dots;
+    };
+    var cur = list.querySelector(".page");
+    if (animateOut && cur) { cur.classList.add("leave"); setTimeout(build, 650); } else build();
+  }
+
+  function render() {
+    var list = $("list");
+    clearInterval(pageTimer);
+    $("pager").innerHTML = "";
+    if (alerts === null) {
+      list.innerHTML = '<div class="clear-panel panel unknown enter-pop" style="--d:.3s"><div class="ok">' + WxIcons.weather("warning") +
+        '</div><div><h2>Alerts unavailable</h2><p>Check weather.gov</p></div></div>';
+      return;
+    }
+    if (!alerts.length) {
+      list.innerHTML = '<div class="clear-panel panel enter-pop" style="--d:.3s"><div class="ok">' + WxIcons.weather("check") +
+        '</div><div><h2>No Active Alerts</h2><p>No watches or warnings</p></div></div>';
+      return;
+    }
+    if (alerts.length === 1) {
+      list.innerHTML = cardHTML(alerts[0], 0, true);
+      S.fitAll(list);
+      return;
+    }
+    pageIdx = 0;
+    showPage(0, false);
+    if (alerts.length > 3) {
+      pageTimer = setInterval(function () {
+        pageIdx = (pageIdx + 1) % Math.ceil(alerts.length / 3);
+        showPage(pageIdx, true);
+      }, C.alertPageSeconds * 1000);
+    }
+  }
+
+  function apply(list, fresh) {
+    var tidyList = list === null ? null : tidy(list);
+    var sig = JSON.stringify(tidyList && tidyList.map(function (a) { return [a.event, a.end, a.onset]; }));
+    alerts = tidyList;
+    if (sig !== lastSig) { lastSig = sig; render(); }
+    S.setUpdated(lastOk ? new Date(lastOk) : null, !fresh);
+  }
+
+  function fetchAlerts() {
+    if (S.params.alerts) return new Promise(function (res) { res(demo(S.params.alerts)); });
+    return S.getJSON("https://api.weather.gov/alerts/active?area=" + C.alertArea).then(function (d) {
+      return (d.features || []).filter(relevant).map(simplify);
+    });
+  }
+
+  function load() {
+    fetchAlerts().then(function (list) {
+      lastOk = Date.now();
+      S.store("alerts", list);
+      apply(list, true);
+    }).catch(function (e) {
+      console.warn("Alert fetch failed", e);
+      // Never claim "no alerts" from old data: only trust a cache newer than 15 minutes
+      var c = S.recall("alerts", 15 * 60000);
+      if (c) { lastOk = c.t; apply(c.v, false); } else { apply(null, false); }
+    });
+  }
+
+  function demo(kind) {
+    var h = 3600000, n = Date.now(), iso = function (ms) { return new Date(n + ms).toISOString(); };
+    var all = [
+      { event: "Tornado Warning", level: "warning", onset: iso(-600000), end: iso(0.6 * h), headline: "", sender: "NWS Indianapolis IN" },
+      { event: "Severe Thunderstorm Watch", level: "watch", onset: iso(-h), end: iso(4 * h), headline: "", sender: "NWS Storm Prediction Center" },
+      { event: "Flood Warning", level: "warning", onset: iso(-h), end: iso(30 * h), headline: "", sender: "NWS Indianapolis IN" },
+      { event: "Winter Storm Watch", level: "watch", onset: iso(20 * h), end: iso(48 * h), headline: "", sender: "NWS Indianapolis IN" },
+      { event: "Wind Advisory", level: "advisory", onset: iso(-h), end: iso(6 * h), headline: "", sender: "NWS Indianapolis IN" },
+      { event: "Dense Fog Advisory", level: "advisory", onset: iso(-h), end: iso(3 * h), headline: "", sender: "NWS Indianapolis IN" },
+      { event: "Red Flag Warning", level: "warning", onset: iso(-h), end: iso(5 * h), headline: "", sender: "NWS Indianapolis IN" }
+    ];
+    if (kind === "none") return [];
+    if (kind === "one") return [{ event: "Winter Storm Warning", level: "warning", onset: iso(2 * h), end: iso(26 * h),
+      headline: "WINTER STORM WARNING IN EFFECT FROM 7 PM THIS EVENING TO 7 PM EST MONDAY", sender: "NWS Indianapolis IN" }];
+    if (kind === "three") return all.slice(1, 4);
+    if (kind === "two") return all.slice(0, 2);
+    if (kind === "error") throw new Error("demo");
+    return all;
+  }
+
+  S.boot(function () {
+    Sky.init("sky");
+    S.startObservations();
+    // show recent cached alerts instantly, then refresh
+    var c = S.recall("alerts", 15 * 60000);
+    if (c && !S.params.alerts) { lastOk = c.t; apply(c.v, true); }
+    S.whenLocated(function () {
+      load();
+      setInterval(load, C.refreshAlertsMs);
+    });
+  });
+})();
+</script>
+</body>
+</html>
