@@ -137,3 +137,4 @@ Notes:
 - Fonts: [Barlow and Barlow Semi Condensed](https://fonts.google.com/specimen/Barlow), SIL Open Font License, loaded from Google Fonts. The pages fall back to Arial if the fonts can't be loaded.
 - Code and design developed in collaboration with Claude (Anthropic).
 - Background images generated with Stable Diffusion (Juggernaut XL) and processed with Claude.
+- “Skywarn® and the Skywarn® logo are registered trademarks of the National Oceanic and Atmospheric Administration, used with permission.”
