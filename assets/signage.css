@@ -153,8 +153,9 @@ html, body {
   font-feature-settings: "tnum" 1;
   text-shadow: var(--shadow);
 }
-.clock-time .ampm { font-size: 58px; line-height: 1; margin-left: 12px; color: var(--ink-soft); }
-.clock-time .sec { color: var(--ink-soft); }
+.clock-time .ampm { font-size: 58px; line-height: 1; margin-left: 12px; }
+/* everything in the header is pure white */
+.topbar, .title-block h1, .clock-time, .clock-time .sec, .clock-time .ampm { color: #FFFFFF; }
 .clock-date {
   margin-top: 8px;
   font-size: 40px;
