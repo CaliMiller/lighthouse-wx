@@ -15,6 +15,30 @@ Features:
 - Animated weather icons and entrance animations
 - Photo backgrounds that change with the season, time of day and weather, with live rain, snow, fog and lightning drawn on top
 
+## Screenshots
+
+| Current Conditions | Extended Forecast |
+|---|---|
+| ![Current Conditions page](docs/screenshots/current.jpg) | ![Extended Forecast page](docs/screenshots/forecast.jpg) |
+| **Weather Alerts** | **Regional Radar** |
+| ![Weather Alerts page](docs/screenshots/alerts.jpg) | ![Regional Radar page](docs/screenshots/radar.jpg) |
+
+The first three screenshots use sample weather data; the alerts are the built-in demo (`alerts.html?alerts=demo`). The radar screenshot was taken on a real display in central Indiana.
+
+## Live demo
+
+Try the pages in your browser. They show the default ZIP code (90210); add `?zip=` with your own, for example `current.html?zip=46176`.
+
+- [Current Conditions](https://calimiller.github.io/lighthouse-wx/current.html)
+- [Extended Forecast](https://calimiller.github.io/lighthouse-wx/forecast.html)
+- [Weather Alerts](https://calimiller.github.io/lighthouse-wx/alerts.html), or the [alerts demo](https://calimiller.github.io/lighthouse-wx/alerts.html?alerts=demo)
+- [Regional Radar](https://calimiller.github.io/lighthouse-wx/radar.html)
+- [A snowy winter morning](https://calimiller.github.io/lighthouse-wx/current.html?cond=snow&hour=8&month=1), using the preview options below
+
+The pages are designed for 1920×1080. In a smaller browser window, they scale down to fit.
+
+**Hosting:** if you don't have a web server, a free GitHub Pages site works. Fork this repository, then go to Settings → Pages and publish from the `main` branch. Point your signage player at `https://<your-username>.github.io/lighthouse-wx/current.html?zip=<your ZIP>`.
+
 ## Quick start
 
 1. Copy the whole folder to a web server, or any place your signage player can load web pages from. Keep `assets/` next to the HTML files.
@@ -37,7 +61,7 @@ That's it. On first load, each page:
 The result is saved in the browser for 30 days and checked again weekly. The ZIP lookup service only needs to be reachable the first time.
 
 **Other ways to set the location:**
-- **Latitude and longitude:** use these instead of a ZIP code, for example `window.WX_SETTINGS = { lat: 39.77, lon: -86.16 };`. This skips the ZIP lookup.1
+- **Latitude and longitude:** use these instead of a ZIP code, for example `window.WX_SETTINGS = { lat: 39.77, lon: -86.16 };`. This skips the ZIP lookup.
 - **URL:** the page address overrides the file setting, so one copy can serve several screens, for example `current.html?zip=90210`.
 
 If the location can't be found (a mistyped ZIP, say), the message at the bottom-left of the page says so.
